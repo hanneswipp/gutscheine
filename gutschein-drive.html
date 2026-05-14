@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Gutschein Organizer</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f0e17;--surface:#1a1825;--surface2:#242233;--accent:#e8c547;--text:#fffffe;--muted:#8b8a9b;--green:#5fffb0;--orange:#ffb347;--red:#ff6b6b;--r:18px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;max-width:480px;margin:0 auto;overflow-x:hidden;}
+body::before{content:'';position:fixed;top:-200px;left:-100px;width:500px;height:500px;background:radial-gradient(circle,rgba(232,197,71,.08) 0%,transparent 70%);pointer-events:none;z-index:0;}
+.header{padding:48px 20px 24px;position:relative;z-index:1;}
+.header-label{font-family:'Syne',sans-serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--accent);margin-bottom:8px;}
+.header-total{font-family:'Syne',sans-serif;font-size:48px;font-weight:800;line-height:1;letter-spacing:-2px;}
+.header-sub{display:flex;gap:10px;margin-top:10px;align-items:center;flex-wrap:wrap;}
+.header-count{font-size:13px;color:var(--muted);}
+.warn-pill{background:var(--orange);color:#000;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;font-family:'Syne',sans-serif;}
+.search-wrap{padding:0 20px 16px;position:relative;z-index:1;}
+.search-input{width:100%;background:var(--surface);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:13px 16px 13px 42px;color:var(--text);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s;}
+.search-input:focus{border-color:var(--accent);}
+.search-input::placeholder{color:var(--muted);}
+.search-icon{position:absolute;left:34px;top:50%;transform:translateY(-50%);font-size:16px;pointer-events:none;}
+.tabs{display:flex;padding:0 20px;gap:6px;margin-bottom:4px;position:relative;z-index:1;}
+.tab{flex:1;padding:10px;border:none;border-radius:12px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;background:var(--surface);color:var(--muted);}
+.tab.active{background:var(--accent);color:#000;}
+.chips{display:flex;gap:8px;padding:12px 20px;overflow-x:auto;scrollbar-width:none;position:relative;z-index:1;}
+.chips::-webkit-scrollbar{display:none;}
+.chip{flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid rgba(255,255,255,.1);background:transparent;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;}
+.chip.active{background:var(--surface2);border-color:var(--accent);color:var(--accent);}
+.sync-bar{margin:0 20px 12px;padding:8px 14px;background:var(--surface);border-radius:10px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);position:relative;z-index:1;}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;animation:pulse 2s infinite;}
+.sync-dot.syncing{background:var(--orange);animation:none;}
+.sync-dot.error{background:var(--red);animation:none;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+.list{padding:0 20px 120px;position:relative;z-index:1;}
+.card{background:var(--surface);border-radius:var(--r);margin-bottom:10px;display:flex;align-items:center;gap:14px;padding:14px;cursor:pointer;border:1px solid rgba(255,255,255,.05);transition:transform .15s;position:relative;overflow:hidden;}
+.card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--card-color,var(--accent));border-radius:4px 0 0 4px;}
+.card:active{transform:scale(.98);}
+.card.expired{opacity:.5;}
+.card-icon{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;background:rgba(255,255,255,.05);}
+.card-info{flex:1;min-width:0;}
+.card-top{display:flex;justify-content:space-between;align-items:flex-start;}
+.card-shop{font-family:'Syne',sans-serif;font-weight:700;font-size:16px;color:var(--text);}
+.card-amount{font-family:'Syne',sans-serif;font-weight:800;font-size:17px;}
+.card-owner{font-size:12px;color:var(--muted);margin-top:3px;}
+.card-bottom{display:flex;justify-content:space-between;align-items:center;margin-top:8px;}
+.card-date{font-size:11px;color:var(--muted);}
+.badge{font-size:11px;font-weight:700;font-family:'Syne',sans-serif;padding:3px 10px;border-radius:20px;color:#000;}
+.empty{text-align:center;padding:60px 0;color:var(--muted);}
+.empty-emoji{font-size:48px;display:block;margin-bottom:12px;}
+.fab{position:fixed;bottom:28px;right:calc(50% - 220px);width:60px;height:60px;border-radius:50%;background:var(--accent);color:#000;border:none;font-size:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 32px rgba(232,197,71,.4);transition:transform .15s;z-index:100;}
+.fab:active{transform:scale(.92);}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px);}
+.modal-bg.open{display:flex;}
+.modal{background:var(--surface);border-radius:24px 24px 0 0;width:100%;max-width:480px;padding:0 0 40px;max-height:92vh;overflow-y:auto;animation:slideUp .3s cubic-bezier(.32,.72,0,1);scrollbar-width:none;}
+.modal::-webkit-scrollbar{display:none;}
+@keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+.modal-handle{width:40px;height:4px;background:rgba(255,255,255,.15);border-radius:2px;margin:14px auto 20px;}
+.modal-content{padding:0 22px;}
+.detail-header{display:flex;align-items:center;gap:14px;margin-bottom:22px;}
+.detail-icon{width:64px;height:64px;border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:32px;background:rgba(255,255,255,.07);}
+.detail-shop{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;}
+.detail-cat{font-size:13px;color:var(--muted);margin-top:2px;}
+.detail-rows{border-radius:14px;overflow:hidden;margin-bottom:16px;}
+.detail-row{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;background:var(--surface2);border-bottom:1px solid rgba(255,255,255,.04);}
+.detail-row:last-child{border-bottom:none;}
+.detail-label{font-size:13px;color:var(--muted);}
+.detail-value{font-size:14px;font-weight:600;text-align:right;max-width:60%;}
+.btn{width:100%;padding:15px;border-radius:14px;border:none;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;transition:opacity .15s;}
+.btn:active{opacity:.8;}
+.btn-primary{background:var(--accent);color:#000;}
+.btn-used{background:rgba(95,255,176,.15);color:var(--green);}
+.btn-secondary{background:rgba(107,207,255,.1);color:#6bcfff;}
+.btn-danger{background:rgba(255,107,107,.1);color:var(--red);}
+.form-section{font-family:'Syne',sans-serif;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin:20px 0 10px;}
+.form-label{font-size:12px;color:var(--muted);font-weight:600;margin-bottom:6px;margin-top:14px;display:block;}
+.form-input{width:100%;background:var(--surface2);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:13px 14px;color:var(--text);font-size:15px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s;}
+.form-input:focus{border-color:var(--accent);}
+.form-input::placeholder{color:var(--muted);}
+.form-row{display:flex;gap:10px;}
+.form-row>div{flex:1;}
+.emoji-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;}
+.emoji-btn{width:44px;height:44px;border-radius:12px;background:var(--surface2);border:2px solid transparent;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.emoji-btn.sel{border-color:var(--accent);background:rgba(232,197,71,.1);}
+.color-row{display:flex;gap:10px;margin-top:4px;flex-wrap:wrap;}
+.color-dot{width:32px;height:32px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:all .15s;}
+.color-dot.sel{border-color:#fff;transform:scale(1.15);}
+.cat-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;}
+.cat-btn{padding:7px 14px;border-radius:20px;background:var(--surface2);border:1px solid transparent;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;}
+.cat-btn.sel{border-color:var(--accent);color:var(--accent);}
+.preview-card{background:var(--surface2);border-radius:14px;padding:14px;display:flex;align-items:center;gap:12px;margin:16px 0;border-left:4px solid var(--accent);}
+.preview-emoji{font-size:28px;}
+.preview-shop{font-family:'Syne',sans-serif;font-weight:700;font-size:16px;}
+.preview-owner{font-size:12px;color:var(--muted);margin-top:2px;}
+.preview-amount{font-family:'Syne',sans-serif;font-weight:800;font-size:18px;margin-left:auto;}
+.loading{text-align:center;padding:40px;color:var(--muted);font-size:14px;}
+.spinner{width:32px;height:32px;border:3px solid rgba(255,255,255,.1);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.login-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:40px 20px;text-align:center;}
+.login-emoji{font-size:64px;margin-bottom:20px;}
+.login-title{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;margin-bottom:8px;}
+.login-sub{color:var(--muted);font-size:14px;margin-bottom:32px;line-height:1.6;}
+.login-btn{background:var(--accent);color:#000;border:none;border-radius:16px;padding:16px 32px;font-family:'Syne',sans-serif;font-size:16px;font-weight:700;cursor:pointer;width:100%;max-width:320px;}
+</style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-emoji">🎁</div>
+  <div class="login-title">Gutschein Organizer</div>
+  <div class="login-sub">Melde dich mit Google an um deine Gutscheine mit deiner Freundin zu teilen.</div>
+  <button class="login-btn" onclick="signIn()">🔐 Mit Google anmelden</button>
+</div>
+
+<!-- Main App (hidden until logged in) -->
+<div id="appScreen" style="display:none">
+  <div class="header">
+    <div class="header-label">Gutschein Organizer</div>
+    <div class="header-total" id="totalDisplay">0,00 €</div>
+    <div class="header-sub">
+      <span class="header-count" id="countDisplay">Lade...</span>
+      <span class="warn-pill" id="warnPill" style="display:none"></span>
+    </div>
+  </div>
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input class="search-input" id="searchInput" placeholder="Shop oder Inhaber suchen..." oninput="renderList()">
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="setTab('aktiv',this)">Aktiv</button>
+    <button class="tab" onclick="setTab('archiv',this)">Archiv</button>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div class="sync-bar">
+    <div class="sync-dot" id="syncDot"></div>
+    <span id="syncText">Verbinde mit Google Drive...</span>
+  </div>
+  <div class="list" id="list">
+    <div class="loading"><div class="spinner"></div>Gutscheine werden geladen...</div>
+  </div>
+  <button class="fab" onclick="openAdd()">＋</button>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal-bg" id="detailModal" onclick="closeModal('detailModal')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-content" id="detailContent"></div>
+  </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-bg" id="addModal" onclick="closeModal('addModal')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-content" id="addContent"></div>
+  </div>
+</div>
+
+<!-- Google Identity Services -->
+<script src="https://accounts.google.com/gsi/client" async></script>
+<script>
+// ── Config ───────────────────────────────────────────────────────────────────
+const CLIENT_ID = '294628672210-6vmaah922q19gstu6nvnst2q9sktq32b.apps.googleusercontent.com';
+const API_KEY   = 'AIzaSyBYQWIDH3yUaBg3-CGU_MiRS3esdKQV8RM';
+const FOLDER_ID = '1FHo2DZdy3Wf5cO30aUlL6UEjr-L0teGj';
+const FILENAME  = 'gutscheine.json';
+const SCOPES    = 'https://www.googleapis.com/auth/drive.file';
+
+let accessToken = null;
+let fileId      = null;
+let vouchers    = [];
+let currentTab  = 'aktiv';
+let currentCat  = 'Alle';
+let editingId   = null;
+let fs          = {emoji:'🎁', color:'#e8c547', category:'Sonstiges'};
+
+const CATS   = ['Alle','Mode','Möbel','Online','Drogerie','Restaurant','Reise','Elektronik','Sonstiges'];
+const EMOJIS = ['🎁','🛋️','📦','👟','🧴','🍕','✈️','💻','🎮','👗','📚','🌸','🏠','🚗','⌚'];
+const COLORS = ['#e8c547','#ff6b6b','#6bcfff','#5fffb0','#ff9f43','#a29bfe','#fd79a8','#55efc4'];
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function daysLeft(d){const t=new Date();t.setHours(0,0,0,0);const e=new Date(d);e.setHours(0,0,0,0);return Math.ceil((e-t)/864e5);}
+function fmtDate(d){return new Date(d).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric'});}
+function money(n){return n.toFixed(2).replace('.',',')+' €';}
+function statusColor(d,u){if(u)return'#8b8a9b';if(d<0)return'#ff6b6b';if(d<=14)return'#ffb347';if(d<=30)return'#e8c547';return'#5fffb0';}
+function statusText(d,u){if(u)return'Eingelöst';if(d<0)return'Abgelaufen';if(d===0)return'Heute!';return d+'d';}
+
+// ── Google Auth ──────────────────────────────────────────────────────────────
+function signIn() {
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPES,
+    callback: async (resp) => {
+      if (resp.error) { alert('Anmeldung fehlgeschlagen: ' + resp.error); return; }
+      accessToken = resp.access_token;
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('appScreen').style.display = 'block';
+      await loadFromDrive();
+      setInterval(loadFromDrive, 30000);
+    },
+  });
+  client.requestAccessToken();
+}
+
+// ── Google Drive API ─────────────────────────────────────────────────────────
+async function driveRequest(url, method='GET', body=null) {
+  const opts = {
+    method,
+    headers: { Authorization: 'Bearer ' + accessToken }
+  };
+  if (body) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  const r = await fetch(url, opts);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function findFile() {
+  const q = encodeURIComponent(`name='${FILENAME}' and '${FOLDER_ID}' in parents and trashed=false`);
+  const r = await driveRequest(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)&key=${API_KEY}`);
+  return r.files && r.files.length > 0 ? r.files[0].id : null;
+}
+
+async function loadFromDrive() {
+  setSS('syncing', 'Synchronisiere...');
+  try {
+    fileId = await findFile();
+    if (fileId) {
+      const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+        headers: { Authorization: 'Bearer ' + accessToken }
+      });
+      vouchers = await r.json();
+    } else {
+      vouchers = defaults();
+      await saveToDrive();
+    }
+    setSS('ok', 'Google Drive · ' + new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}));
+  } catch(e) {
+    setSS('error', 'Fehler: ' + e.message.substring(0,40));
+  }
+  renderAll();
+}
+
+async function saveToDrive() {
+  setSS('syncing', 'Speichert in Google Drive...');
+  try {
+    const content = JSON.stringify(vouchers);
+    const blob = new Blob([content], {type:'application/json'});
+
+    if (fileId) {
+      // Update existing file
+      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+        method: 'PATCH',
+        headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body: content
+      });
+    } else {
+      // Create new file
+      const meta = { name: FILENAME, parents: [FOLDER_ID] };
+      const form = new FormData();
+      form.append('metadata', new Blob([JSON.stringify(meta)], {type:'application/json'}));
+      form.append('file', blob);
+      const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + accessToken },
+        body: form
+      });
+      const data = await r.json();
+      fileId = data.id;
+    }
+    setSS('ok', 'Gespeichert in Drive · ' + new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}));
+  } catch(e) {
+    setSS('error', 'Speichern fehlgeschlagen');
+  }
+}
+
+function setSS(state, text) {
+  const d = document.getElementById('syncDot');
+  d.className = 'sync-dot' + (state !== 'ok' ? ' ' + state : '');
+  document.getElementById('syncText').textContent = text;
+}
+
+function defaults() {
+  return [
+    {id:'1',shop:'IKEA',owner:'Max',amount:50,validUntil:'2025-08-31',category:'Möbel',color:'#e8c547',emoji:'🛋️',code:'IKE-2024-XK91',used:false,notes:''},
+    {id:'2',shop:'Zalando',owner:'Lisa',amount:100,validUntil:'2026-01-10',category:'Mode',color:'#ff6b6b',emoji:'👟',code:'ZAL-X9KM-0124',used:false,notes:''},
+  ];
+}
+
+// ── Render ───────────────────────────────────────────────────────────────────
+function renderAll(){renderChips();renderList();updateHeader();}
+
+function updateHeader(){
+  const act=vouchers.filter(v=>!v.used&&daysLeft(v.validUntil)>=0);
+  document.getElementById('totalDisplay').textContent=money(act.reduce((s,v)=>s+v.amount,0));
+  document.getElementById('countDisplay').textContent=act.length+' aktive Gutscheine';
+  const soon=act.filter(v=>daysLeft(v.validUntil)<=14).length;
+  const p=document.getElementById('warnPill');
+  if(soon>0){p.style.display='';p.textContent='⚠ '+soon+' läuft bald ab';}else p.style.display='none';
+}
+
+function renderChips(){
+  document.getElementById('chips').innerHTML=CATS.map(c=>
+    `<button class="chip${c===currentCat?' active':''}" onclick="setCat('${c}')">${c}</button>`
+  ).join('');
+}
+
+function renderList(){
+  const s=document.getElementById('searchInput').value.toLowerCase();
+  const f=vouchers.filter(v=>{
+    const d=daysLeft(v.validUntil),ia=!v.used&&d>=0;
+    return(currentTab==='aktiv'?ia:!ia)&&(currentCat==='Alle'||v.category===currentCat)&&
+      (v.shop.toLowerCase().includes(s)||v.owner.toLowerCase().includes(s));
+  });
+  if(!f.length){document.getElementById('list').innerHTML='<div class="empty"><span class="empty-emoji">🎫</span><div>Keine Gutscheine gefunden</div></div>';return;}
+  document.getElementById('list').innerHTML=f.map(v=>{
+    const d=daysLeft(v.validUntil),exp=d<0||v.used;
+    return`<div class="card${exp?' expired':''}" style="--card-color:${v.color}" onclick="openDetail('${v.id}')">
+      <div class="card-icon">${v.emoji}</div>
+      <div class="card-info">
+        <div class="card-top"><span class="card-shop">${v.shop}</span><span class="card-amount" style="color:${exp?'#8b8a9b':v.color}">${money(v.amount)}</span></div>
+        <div class="card-owner">👤 ${v.owner} · ${v.category}</div>
+        <div class="card-bottom"><span class="card-date">bis ${fmtDate(v.validUntil)}</span><span class="badge" style="background:${statusColor(d,v.used)}">${statusText(d,v.used)}</span></div>
+      </div></div>`;
+  }).join('');
+}
+
+function setTab(t,el){currentTab=t;document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));el.classList.add('active');renderList();}
+function setCat(c){currentCat=c;renderChips();renderList();}
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function row(l,v){return`<div class="detail-row"><span class="detail-label">${l}</span><span class="detail-value">${v}</span></div>`;}
+
+function openDetail(id){
+  const v=vouchers.find(x=>x.id===id);if(!v)return;
+  const d=daysLeft(v.validUntil);
+  document.getElementById('detailContent').innerHTML=`
+    <div class="detail-header">
+      <div class="detail-icon">${v.emoji}</div>
+      <div><div class="detail-shop">${v.shop}</div><div class="detail-cat">${v.category}</div></div>
+    </div>
+    <div class="detail-rows">
+      ${row('💰 Wert',money(v.amount))}${row('👤 Inhaber',v.owner)}
+      ${row('📅 Gültig bis',fmtDate(v.validUntil))}
+      ${row('⏳ Verbleibend','<span style="color:'+statusColor(d,v.used)+';font-weight:700">'+statusText(d,v.used)+'</span>')}
+      ${row('🔑 Code',v.code||'–')}${v.notes?row('📝 Notizen',v.notes):''}
+    </div>
+    <button class="btn ${v.used?'btn-used':'btn-primary'}" onclick="toggleUsed('${v.id}')">${v.used?'↩ Als offen markieren':'✓ Gutschein einlösen'}</button>
+    <button class="btn btn-secondary" onclick="openEdit('${v.id}')">✏️ Bearbeiten</button>
+    <button class="btn btn-danger" onclick="delV('${v.id}')">🗑 Löschen</button>`;
+  openModal('detailModal');
+}
+
+async function toggleUsed(id){
+  vouchers=vouchers.map(v=>v.id===id?{...v,used:!v.used}:v);
+  await saveToDrive();renderAll();closeModal('detailModal');
+}
+
+async function delV(id){
+  if(!confirm('Gutschein wirklich löschen?'))return;
+  vouchers=vouchers.filter(v=>v.id!==id);
+  await saveToDrive();renderAll();closeModal('detailModal');
+}
+
+function openAdd(){editingId=null;fs={emoji:'🎁',color:'#e8c547',category:'Sonstiges'};renderForm(null);openModal('addModal');}
+function openEdit(id){closeModal('detailModal');editingId=id;const v=vouchers.find(x=>x.id===id);fs={emoji:v.emoji,color:v.color,category:v.category};renderForm(v);openModal('addModal');}
+
+function renderForm(v){
+  document.getElementById('addContent').innerHTML=`
+    <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;margin-bottom:4px">${editingId?'Bearbeiten':'Neuer Gutschein'}</div>
+    <div class="form-section">Basis</div>
+    <label class="form-label">Shop / Marke *</label>
+    <input class="form-input" id="fS" placeholder="z.B. Amazon" value="${v?.shop||''}" oninput="updPrev()">
+    <label class="form-label">Inhaber *</label>
+    <input class="form-input" id="fO" placeholder="Wem gehört der Gutschein?" value="${v?.owner||''}" oninput="updPrev()">
+    <div class="form-row">
+      <div><label class="form-label">Wert (€) *</label><input class="form-input" id="fA" type="number" placeholder="50" value="${v?.amount||''}" oninput="updPrev()"></div>
+      <div><label class="form-label">Gültig bis *</label><input class="form-input" id="fD" type="date" value="${v?.validUntil||''}"></div>
+    </div>
+    <label class="form-label">Code</label>
+    <input class="form-input" id="fC" placeholder="z.B. SOMMER24" value="${v?.code||''}">
+    <label class="form-label">Notizen</label>
+    <input class="form-input" id="fN" placeholder="Zusätzliche Infos..." value="${v?.notes||''}">
+    <div class="form-section">Kategorie</div>
+    <div class="cat-grid">${CATS.filter(c=>c!=='Alle').map(c=>`<button class="cat-btn${fs.category===c?' sel':''}" onclick="selCat('${c}')">${c}</button>`).join('')}</div>
+    <div class="form-section">Symbol</div>
+    <div class="emoji-grid">${EMOJIS.map(e=>`<button class="emoji-btn${fs.emoji===e?' sel':''}" onclick="selEmoji('${e}')">${e}</button>`).join('')}</div>
+    <div class="form-section">Farbe</div>
+    <div class="color-row">${COLORS.map(c=>`<div class="color-dot${fs.color===c?' sel':''}" style="background:${c}" onclick="selColor('${c}')"></div>`).join('')}</div>
+    <div class="form-section">Vorschau</div>
+    <div class="preview-card" id="prevCard" style="border-left-color:${fs.color}">
+      <div class="preview-emoji" id="prevE">${fs.emoji}</div>
+      <div><div class="preview-shop" id="prevS">${v?.shop||'Shop-Name'}</div><div class="preview-owner" id="prevO">👤 ${v?.owner||'Inhaber'}</div></div>
+      <div class="preview-amount" id="prevA" style="color:${fs.color}">${v?money(v.amount):'0,00 €'}</div>
+    </div>
+    <button class="btn btn-primary" onclick="saveV()">${editingId?'✓ Änderungen speichern':'＋ Gutschein hinzufügen'}</button>`;
+}
+
+function selEmoji(e){fs.emoji=e;document.querySelectorAll('.emoji-btn').forEach(b=>b.classList.remove('sel'));event.target.classList.add('sel');document.getElementById('prevE').textContent=e;}
+function selColor(c){fs.color=c;document.querySelectorAll('.color-dot').forEach(b=>b.classList.remove('sel'));event.target.classList.add('sel');document.getElementById('prevCard').style.borderLeftColor=c;document.getElementById('prevA').style.color=c;}
+function selCat(c){fs.category=c;document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('sel'));event.target.classList.add('sel');}
+function updPrev(){
+  document.getElementById('prevS').textContent=document.getElementById('fS')?.value||'Shop-Name';
+  document.getElementById('prevO').textContent='👤 '+(document.getElementById('fO')?.value||'Inhaber');
+  document.getElementById('prevA').textContent=money(parseFloat(document.getElementById('fA')?.value)||0);
+}
+
+async function saveV(){
+  const shop=document.getElementById('fS').value.trim();
+  const owner=document.getElementById('fO').value.trim();
+  const amount=parseFloat(document.getElementById('fA').value);
+  const validUntil=document.getElementById('fD').value;
+  const code=document.getElementById('fC').value.trim();
+  const notes=document.getElementById('fN').value.trim();
+  if(!shop){alert('Bitte einen Shop eingeben.');return;}
+  if(!owner){alert('Bitte einen Inhaber eingeben.');return;}
+  if(!amount||isNaN(amount)){alert('Bitte einen gültigen Betrag eingeben.');return;}
+  if(!validUntil){alert('Bitte ein Datum eingeben.');return;}
+  const data={id:editingId||String(Date.now()),shop,owner,amount,validUntil,category:fs.category,emoji:fs.emoji,color:fs.color,code:code||'–',notes,used:editingId?vouchers.find(v=>v.id===editingId)?.used||false:false};
+  vouchers=editingId?vouchers.map(v=>v.id===editingId?data:v):[data,...vouchers];
+  await saveToDrive();renderAll();closeModal('addModal');
+}
+</script>
+</body>
+</html>
