@@ -190,20 +190,30 @@ function statusColor(d,u){if(u)return'#8b8a9b';if(d<0)return'#ff6b6b';if(d<=14)r
 function statusText(d,u){if(u)return'Eingelöst';if(d<0)return'Abgelaufen';if(d===0)return'Heute!';return d+'d';}
 
 // ── Google Auth ──────────────────────────────────────────────────────────────
-function signIn() {
-  const client = google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID,
-    scope: SCOPES,
+let tokenClient = null;
+
+window.onGoogleLibraryLoad = () => {
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID, scope: SCOPES, prompt: '',
     callback: async (resp) => {
-      if (resp.error) { alert('Anmeldung fehlgeschlagen: ' + resp.error); return; }
+      if (resp.error) { document.getElementById('loginScreen').style.display = 'flex'; return; }
       accessToken = resp.access_token;
-      document.getElementById('loginScreen').style.display = 'none';
-      document.getElementById('appScreen').style.display = 'block';
-      await loadFromDrive();
-      setInterval(loadFromDrive, 30000);
+      showApp();
     },
   });
-  client.requestAccessToken();
+  tokenClient.requestAccessToken({prompt: ''});
+};
+
+function signIn() {
+  if (tokenClient) tokenClient.requestAccessToken({prompt: 'consent'});
+}
+
+async function showApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+  await loadFromDrive();
+  setInterval(loadFromDrive, 10000);
+  setInterval(() => tokenClient && tokenClient.requestAccessToken({prompt:''}), 45*60*1000);
 }
 
 // ── Google Drive API ─────────────────────────────────────────────────────────
