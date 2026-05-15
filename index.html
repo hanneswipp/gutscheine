@@ -231,25 +231,17 @@ async function driveRequest(url, method='GET', body=null) {
   return r.json();
 }
 
-async function findFile() {
-  const q = encodeURIComponent(`name='${FILENAME}' and '${FOLDER_ID}' in parents and trashed=false`);
-  const r = await driveRequest(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)&key=${API_KEY}`);
-  return r.files && r.files.length > 0 ? r.files[0].id : null;
-}
+// Feste Datei-ID – beide nutzen immer dieselbe Datei!
+const FIXED_FILE_ID = '1sBLSHLlL84STCIaYsvA6d_XrP7OOe6Qo';
 
 async function loadFromDrive() {
   setSS('syncing', 'Synchronisiere...');
   try {
-    fileId = await findFile();
-    if (fileId) {
-      const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-        headers: { Authorization: 'Bearer ' + accessToken }
-      });
-      vouchers = await r.json();
-    } else {
-      vouchers = defaults();
-      await saveToDrive();
-    }
+    fileId = FIXED_FILE_ID;
+    const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+      headers: { Authorization: 'Bearer ' + accessToken }
+    });
+    vouchers = await r.json();
     setSS('ok', 'Google Drive · ' + new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}));
   } catch(e) {
     setSS('error', 'Fehler: ' + e.message.substring(0,40));
@@ -260,30 +252,15 @@ async function loadFromDrive() {
 async function saveToDrive() {
   setSS('syncing', 'Speichert in Google Drive...');
   try {
-    const content = JSON.stringify(vouchers);
-    const blob = new Blob([content], {type:'application/json'});
+    const jsonContent = JSON.stringify(vouchers);
+    const blob = new Blob([jsonContent], {type:'application/json'});
 
-    if (fileId) {
-      // Update existing file
-      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
-        method: 'PATCH',
-        headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
-        body: content
-      });
-    } else {
-      // Create new file
-      const meta = { name: FILENAME, parents: [FOLDER_ID] };
-      const form = new FormData();
-      form.append('metadata', new Blob([JSON.stringify(meta)], {type:'application/json'}));
-      form.append('file', blob);
-      const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-        method: 'POST',
-        headers: { Authorization: 'Bearer ' + accessToken },
-        body: form
-      });
-      const data = await r.json();
-      fileId = data.id;
-    }
+    // Immer die gemeinsame Datei updaten
+    await fetch(`https://www.googleapis.com/upload/drive/v3/files/${FIXED_FILE_ID}?uploadType=media`, {
+      method: 'PATCH',
+      headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: jsonContent
+    });
     setSS('ok', 'Gespeichert in Drive · ' + new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}));
   } catch(e) {
     setSS('error', 'Speichern fehlgeschlagen');
