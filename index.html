@@ -242,19 +242,19 @@ async function driveRequest(url, method='GET', body=null) {
 }
 
 async function findOrCreateFile() {
-  // Search for existing file in folder
+  // Search for ALL existing files in folder, pick the largest
   const q = encodeURIComponent(`name='${FILENAME}' and '${FOLDER_ID}' in parents and trashed=false`);
-  const r = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`, {
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,size)&orderBy=quotaBytesUsed desc`, {
     headers: { Authorization: 'Bearer ' + accessToken }
   });
   const data = await r.json();
   if (data.files && data.files.length > 0) {
-    // Use the first (oldest) file found
+    // Always use the largest file (most data)
     return data.files[0].id;
   }
-  // Create new file
+  // Only create if NO file exists at all
   const meta = { name: FILENAME, parents: [FOLDER_ID] };
-  const jsonContent = JSON.stringify(defaults());
+  const jsonContent = JSON.stringify([]);
   const form = new FormData();
   form.append('metadata', new Blob([JSON.stringify(meta)], {type:'application/json'}));
   form.append('file', new Blob([jsonContent], {type:'application/json'}));
