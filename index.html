@@ -136,7 +136,8 @@ body::before{content:'';position:fixed;top:-200px;left:-100px;width:500px;height
   <div class="sync-bar">
     <div class="sync-dot" id="syncDot"></div>
     <span id="syncText" style="flex:1">Verbinde mit Google Drive...</span>
-    <button onclick="loadFromDrive()" style="background:rgba(255,255,255,0.1);border:none;color:#fffffe;border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;">🔄 Neu laden</button>
+    <button onclick="loadFromDrive()" style="background:rgba(255,255,255,0.1);border:none;color:#fffffe;border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;margin-right:4px">🔄</button>
+    <button onclick="signOut()" style="background:rgba(255,107,107,0.15);border:none;color:#ff6b6b;border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;">Abmelden</button>
   </div>
   <div class="list" id="list">
     <div class="loading"><div class="spinner"></div>Gutscheine werden geladen...</div>
@@ -204,6 +205,15 @@ window.onGoogleLibraryLoad = () => {
   tokenClient.requestAccessToken({prompt: ''});
 };
 
+function signOut() {
+  google.accounts.oauth2.revoke(accessToken, () => {
+    accessToken = null;
+    fileId = null;
+    document.getElementById('appScreen').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'flex';
+  });
+}
+
 function signIn() {
   if (tokenClient) tokenClient.requestAccessToken({prompt: 'consent'});
 }
@@ -231,20 +241,54 @@ async function driveRequest(url, method='GET', body=null) {
   return r.json();
 }
 
-// Feste Datei-ID – beide nutzen immer dieselbe Datei!
-const FIXED_FILE_ID = '1sBLSHLlL84STCIaYsvA6d_XrP7OOe6Qo';
+async function findOrCreateFile() {
+  // Search for existing file in folder
+  const q = encodeURIComponent(`name='${FILENAME}' and '${FOLDER_ID}' in parents and trashed=false`);
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`, {
+    headers: { Authorization: 'Bearer ' + accessToken }
+  });
+  const data = await r.json();
+  if (data.files && data.files.length > 0) {
+    // Use the first (oldest) file found
+    return data.files[0].id;
+  }
+  // Create new file
+  const meta = { name: FILENAME, parents: [FOLDER_ID] };
+  const jsonContent = JSON.stringify(defaults());
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify(meta)], {type:'application/json'}));
+  form.append('file', new Blob([jsonContent], {type:'application/json'}));
+  const cr = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + accessToken },
+    body: form
+  });
+  const created = await cr.json();
+  return created.id;
+}
 
 async function loadFromDrive() {
   setSS('syncing', 'Synchronisiere...');
   try {
-    fileId = FIXED_FILE_ID;
+    if (!fileId) fileId = await findOrCreateFile();
     const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
       headers: { Authorization: 'Bearer ' + accessToken }
     });
-    vouchers = await r.json();
+    if (!r.ok) {
+      // File not found, reset and find again
+      fileId = null;
+      fileId = await findOrCreateFile();
+      const r2 = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+        headers: { Authorization: 'Bearer ' + accessToken }
+      });
+      vouchers = await r2.json();
+    } else {
+      vouchers = await r.json();
+    }
     setSS('ok', 'Google Drive · ' + new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}));
   } catch(e) {
     setSS('error', 'Fehler: ' + e.message.substring(0,40));
+    vouchers = defaults();
   }
   renderAll();
 }
@@ -255,8 +299,8 @@ async function saveToDrive() {
     const jsonContent = JSON.stringify(vouchers);
     const blob = new Blob([jsonContent], {type:'application/json'});
 
-    // Immer die gemeinsame Datei updaten
-    await fetch(`https://www.googleapis.com/upload/drive/v3/files/${FIXED_FILE_ID}?uploadType=media`, {
+    // Update the shared file
+    await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
       method: 'PATCH',
       headers: { Authorization: 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
       body: jsonContent
